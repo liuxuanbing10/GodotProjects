@@ -156,44 +156,151 @@ func _draw() -> void:
 		if _laser_hit:
 			draw_circle(_laser_b, 6.0, Color(1.0, 0.3, 0.3, a * 0.7))
 
-	# Draw walls (not on menu)
+	# Draw walls (not on menu) — shaded with brick detail
 	if state != GameState.MENU:
+		var hs := Constants.CELL * 0.5
 		for cell in _wall_cells:
-			draw_rect(Rect2(cell.x - Constants.CELL * 0.5, cell.y - Constants.CELL * 0.5,
-					Constants.CELL, Constants.CELL), Color(0.4, 0.35, 0.3))
+			var cx := cell.x
+			var cy := cell.y
+			var tl := Vector2(cx - hs, cy - hs)
+			var br := Vector2(cx + hs, cy + hs)
+
+			# Deterministic colour variation from grid position
+			var h := posmod(hash(cell), 21) - 10
+			var base := Color(
+					0.40 + h * 0.002,
+					0.35 + h * 0.002,
+					0.30 + h * 0.002)
+			draw_rect(Rect2(tl, br - tl), base)
+
+			# Edge highlights (2 px) — top/left lighter, bottom/right darker
+			var lit := Color(
+					0.55 + h * 0.002,
+					0.50 + h * 0.002,
+					0.45 + h * 0.002)
+			var dark := Color(
+					0.25 + h * 0.002,
+					0.20 + h * 0.002,
+					0.15 + h * 0.002)
+			draw_line(tl, Vector2(cx + hs, cy - hs), lit, 2.0)
+			draw_line(tl, Vector2(cx - hs, cy + hs), lit, 2.0)
+			draw_line(Vector2(cx - hs, cy + hs), Vector2(cx + hs, cy + hs), dark, 2.0)
+			draw_line(Vector2(cx + hs, cy - hs), Vector2(cx + hs, cy + hs), dark, 2.0)
+
+			# Brick mortar lines (horizontal seams at 1/3 and 2/3)
+			var mortar := Color(
+					0.35 + h * 0.002,
+					0.30 + h * 0.002,
+					0.25 + h * 0.002)
+			var y1 := cy - hs + Constants.CELL / 3.0
+			var y2 := cy - hs + Constants.CELL * 2.0 / 3.0
+			draw_line(Vector2(cx - hs + 1, y1), Vector2(cx + hs - 1, y1), mortar, 1.0)
+			draw_line(Vector2(cx - hs + 1, y2), Vector2(cx + hs - 1, y2), mortar, 1.0)
 
 
 func _draw_menu() -> void:
-	draw_rect(Rect2(0, 0, Constants.ARENA_W, Constants.ARENA_H), Color(0.08, 0.08, 0.12))
+	# Gradient background
+	var top_col := Color(0.05, 0.05, 0.15)
+	var bot_col := Color(0.12, 0.08, 0.2)
+	for y in range(0, Constants.ARENA_H, 4):
+		var t := y / Constants.ARENA_H
+		draw_rect(Rect2(0, y, Constants.ARENA_W, 4), top_col.lerp(bot_col, t))
+
+	# Subtle grid dots
+	var dot_col := Color(0.2, 0.18, 0.25, 0.25)
+	for x in range(0, Constants.ARENA_W, 40):
+		for y in range(0, Constants.ARENA_H, 40):
+			draw_circle(Vector2(x + 20, y + 20), 1.0, dot_col)
+
 	var f := ThemeDB.fallback_font
 	var fs := ThemeDB.fallback_font_size
+	var cx := Constants.ARENA_W / 2.0
 
-	# Title + shadow
-	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 168, 102),
+	# Title glow (soft ring)
+	var gc := Color(1.0, 0.7, 0.1, 0.1)
+	for ox in [-4.0, 4.0]:
+		for oy in [-4.0, 4.0]:
+			draw_string(f, Vector2(cx - 170 + ox, 100 + oy),
+					"TANK TROUBLE", HORIZONTAL_ALIGNMENT_LEFT, -1, fs * 3, gc)
+
+	# Title shadow
+	draw_string(f, Vector2(cx - 168, 102),
 			"TANK TROUBLE", HORIZONTAL_ALIGNMENT_LEFT, -1, fs * 3, Color(0, 0, 0, 0.3))
-	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 170, 100),
+
+	# Main title
+	draw_string(f, Vector2(cx - 170, 100),
 			"TANK TROUBLE", HORIZONTAL_ALIGNMENT_LEFT, -1, fs * 3, Color(1.0, 0.85, 0.2))
 
+	# Accent lines flanking title
+	var line_col := Color(0.4, 0.35, 0.5, 0.5)
+	draw_line(Vector2(cx - 240, 128), Vector2(cx - 20, 128), line_col, 1.0)
+	draw_line(Vector2(cx + 20, 128), Vector2(cx + 240, 128), line_col, 1.0)
+	draw_line(Vector2(cx - 240, 129), Vector2(cx - 20, 129), Color(0.25, 0.2, 0.35, 0.3), 1.0)
+	draw_line(Vector2(cx + 20, 129), Vector2(cx + 240, 129), Color(0.25, 0.2, 0.35, 0.3), 1.0)
+
 	# Subtitle
-	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 60, 155),
+	draw_string(f, Vector2(cx - 60, 155),
 			"坦克动荡", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.7, 0.7, 0.7))
 
-	# Buttons
+	# Buttons (rounded rects)
 	for i in _menu_btns.size():
 		var b := _menu_btns[i]
 		var hover := i == _menu_hover
-		var bg := Color(0.25, 0.25, 0.3) if not hover else Color(0.35, 0.35, 0.42)
-		draw_rect(b.r, bg)
-		draw_rect(b.r, Color(0.5, 0.5, 0.55), false, 2.0)
+		var fill := Color(0.25, 0.25, 0.35) if not hover else Color(0.4, 0.4, 0.5)
+		var border_col := Color(0.5, 0.5, 0.6) if not hover else Color(0.7, 0.7, 0.8)
+
+		# Outer border
+		_draw_rounded_rect(b.r, border_col, 8.0)
+		# Inner fill (inset by 2px)
+		var inner := Rect2(
+				b.r.position + Vector2(2, 2),
+				b.r.size - Vector2(4, 4))
+		_draw_rounded_rect(inner, fill, 6.0)
+
+		# Text
 		draw_string(f, Vector2(b.r.position.x + 20, b.r.position.y + 33),
 				b.l, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 
 	# Settings gear + sound indicator
 	var gear := Vector2(Constants.ARENA_W - 45, 30)
-	draw_circle(gear, 12, Color(0.5, 0.5, 0.5))
-	draw_circle(gear, 8, Color(0.08, 0.08, 0.12))
+	draw_circle(gear, 14, Color(0.3, 0.3, 0.35))
+	draw_circle(gear, 10, Color(0.05, 0.05, 0.15))
 	draw_string(f, Vector2(Constants.ARENA_W - 55, 38),
 			"♪" if _sound_on else "✕", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+
+	# Decorative tank silhouettes
+	_draw_tank_silhouette(Vector2(80, Constants.ARENA_H - 80), Color(0.2, 0.2, 0.3, 0.3), false)
+	_draw_tank_silhouette(Vector2(Constants.ARENA_W - 80, Constants.ARENA_H - 80), Color(0.2, 0.2, 0.3, 0.3), true)
+	_draw_tank_silhouette(Vector2(80, 80), Color(0.2, 0.2, 0.3, 0.3), false)
+	_draw_tank_silhouette(Vector2(Constants.ARENA_W - 80, 80), Color(0.2, 0.2, 0.3, 0.3), true)
+
+
+func _draw_rounded_rect(rect: Rect2, color: Color, radius: float) -> void:
+	var r := rect
+	if radius <= 0:
+		draw_rect(r, color)
+		return
+	radius = minf(radius, minf(r.size.x, r.size.y) * 0.5)
+	var r2 := Vector2(radius, radius)
+	# Center rectangle
+	draw_rect(Rect2(r.position.x + radius, r.position.y, r.size.x - radius * 2, r.size.y), color)
+	# Left/right bars
+	draw_rect(Rect2(r.position.x, r.position.y + radius, r.size.x, r.size.y - radius * 2), color)
+	# Four corner circles (overlap covers gaps)
+	draw_circle(r.position + r2, radius, color)
+	draw_circle(r.position + Vector2(r.size.x - radius, radius), radius, color)
+	draw_circle(r.position + Vector2(radius, r.size.y - radius), radius, color)
+	draw_circle(r.position + Vector2(r.size.x - radius, r.size.y - radius), radius, color)
+
+
+func _draw_tank_silhouette(pos: Vector2, color: Color, flip_h: bool) -> void:
+	var dir := -1.0 if flip_h else 1.0
+	# Body (horizontal rectangle)
+	draw_rect(Rect2(pos.x - 16, pos.y - 10, 32, 20), color)
+	# Turret (circle)
+	draw_circle(pos, 7, color)
+	# Barrel (line)
+	draw_line(pos, pos + Vector2(dir * 24, 0), color, 3.0)
 
 
 # ═══════════════════════════════════════════════════════════

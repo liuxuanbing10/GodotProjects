@@ -142,21 +142,66 @@ func _frag_explode() -> void:
 # ── Visual ─────────────────────────────────────────────────
 func _draw() -> void:
 	var r := BIG_RADIUS if bullet_type == BulletType.BIG_SHOT else RADIUS
+	var tc := _get_type_color()
 
-	# Trail
-	var trail_color := _get_type_color()
+	# ── Trail (existing circles preserved) ──
 	for i in _trail.size():
 		var t := _trail[i]
 		var alpha := float(i) / float(_trail.size()) * 0.4
 		var tr := lerpf(1.0, float(r) * 0.3, float(i) / float(_trail.size()))
-		draw_circle(t - position, tr, Color(trail_color.r, trail_color.g, trail_color.b, alpha))
+		draw_circle(t - position, tr, Color(tc.r, tc.g, tc.b, alpha))
 
-	# Glow
-	draw_circle(Vector2.ZERO, r * 2.0, Color(trail_color.r, trail_color.g, trail_color.b, 0.25))
+	# ── Trail spark dots ──
+	for i in _trail.size():
+		if i % 2 == 0:
+			var t := _trail[i]
+			var sx := ((i * 7 + 3) % 5 - 2) * 0.8
+			var sy := ((i * 11 + 5) % 7 - 3) * 0.8
+			var sa := float(i) / float(_trail.size()) * 0.5
+			draw_circle(t - position + Vector2(sx, sy), 1.0, Color(tc.r, tc.g, tc.b, sa))
 
-	# Main bullet
-	draw_circle(Vector2.ZERO, r, trail_color)
-	draw_circle(Vector2.ZERO, r * 0.5, Color.WHITE)
+	# ── Type-specific glow & effects ──
+	match bullet_type:
+		BulletType.NORMAL:
+			# Two concentric glow rings
+			draw_circle(Vector2.ZERO, r * 2.5, Color(tc.r, tc.g, tc.b, 0.15))
+			draw_circle(Vector2.ZERO, r * 1.5, Color(tc.r, tc.g, tc.b, 0.35))
+
+		BulletType.BIG_SHOT:
+			# Much larger: 3 concentric rings with strong presence
+			var br := r * 1.5
+			draw_circle(Vector2.ZERO, br * 2.0, Color(tc.r, tc.g, tc.b, 0.2))
+			draw_circle(Vector2.ZERO, br * 1.3, Color(tc.r, tc.g, tc.b, 0.4))
+			draw_circle(Vector2.ZERO, br, Color(tc.r, tc.g, tc.b, 0.6))
+
+		BulletType.FRAG_BOMB:
+			# Two glow rings + surrounding spark dots
+			draw_circle(Vector2.ZERO, r * 2.5, Color(tc.r, tc.g, tc.b, 0.15))
+			draw_circle(Vector2.ZERO, r * 1.5, Color(tc.r, tc.g, tc.b, 0.3))
+			var n := 7
+			for j in n:
+				var a := float(j) / float(n) * TAU
+				var o := Vector2(cos(a), sin(a)) * r * 1.8
+				draw_circle(o, 1.5, Color(tc.r, tc.g, tc.b, 0.6))
+
+		BulletType.GATLING:
+			# Two glow rings + motion lines for speed feel
+			draw_circle(Vector2.ZERO, r * 2.0, Color(tc.r, tc.g, tc.b, 0.2))
+			draw_circle(Vector2.ZERO, r * 1.3, Color(tc.r, tc.g, tc.b, 0.4))
+			draw_line(Vector2(-r * 0.5, -r - 3), Vector2(-r * 0.5, -r - 1), Color(tc.r, tc.g, tc.b, 0.5), 1.0)
+			draw_line(Vector2(-r * 0.5, r + 1), Vector2(-r * 0.5, r + 3), Color(tc.r, tc.g, tc.b, 0.5), 1.0)
+
+		BulletType.HOMING:
+			# Two glow rings + orbiting satellite dot
+			draw_circle(Vector2.ZERO, r * 2.5, Color(tc.r, tc.g, tc.b, 0.15))
+			draw_circle(Vector2.ZERO, r * 1.5, Color(tc.r, tc.g, tc.b, 0.3))
+			var oa := _lifetime * 4.0
+			var op := Vector2(cos(oa), sin(oa)) * r * 1.5
+			draw_circle(op, 2.0, Color(tc.r, tc.g, tc.b, 0.8))
+
+	# ── Main bullet body ──
+	draw_circle(Vector2.ZERO, r, tc)
+	draw_circle(Vector2.ZERO, r * 0.4, Color.WHITE)
 
 
 func _get_type_color() -> Color:

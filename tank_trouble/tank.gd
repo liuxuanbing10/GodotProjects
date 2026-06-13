@@ -5,12 +5,13 @@ signal shoot_requested(origin: Vector2, dir: Vector2, shooter_id: int, powerup_t
 signal died(player_id: int)
 
 # ── Constants ──────────────────────────────────────────────
-const SPEED := 220.0
+const SPEED := 300.0
 const TANK_SIZE := 18.0
 const SHOOT_COOLDOWN := 0.35
 const GATLING_INTERVAL := 0.15
 const GATLING_SHOTS := 3
-const ROTATION_SPEED := 3.0
+const ROTATION_SPEED := 4.5
+const BARREL_OFFSET := 24.0
 
 enum PowerUpType { NONE, BIG_SHOT, LASER, FRAG_BOMB, GATLING, HOMING }
 
@@ -96,7 +97,7 @@ func _physics_process(delta: float) -> void:
 	if not is_inside_tree():
 		return
 
-	# Rotate
+	# Rotate — smooth
 	var rot := _get_rotation_input()
 	rotation += rot * ROTATION_SPEED * delta
 
@@ -104,9 +105,15 @@ func _physics_process(delta: float) -> void:
 	var facing_dir := Vector2.RIGHT.rotated(rotation)
 	_facing = facing_dir
 
-	# Thrust
+	# Thrust with smooth acceleration / deceleration
 	var thrust := _get_thrust_input()
-	velocity = facing_dir * thrust * SPEED
+	var target := facing_dir * thrust * SPEED
+	if thrust == 0.0:
+		# Decelerate quickly when no input
+		velocity = velocity.lerp(Vector2.ZERO, 12.0 * delta)
+	else:
+		# Accelerate toward target
+		velocity = velocity.lerp(target, 10.0 * delta)
 	move_and_slide()
 
 	# Shooting
@@ -140,9 +147,10 @@ func _wants_to_shoot() -> bool:
 func _shoot() -> void:
 	_can_shoot = false
 
+	var spawn_pos := global_position + _facing * BARREL_OFFSET
 	var pu := current_powerup
 	current_powerup = PowerUpType.NONE
-	shoot_requested.emit(global_position, _facing, player_id, pu)
+	shoot_requested.emit(spawn_pos, _facing, player_id, pu)
 
 	# Handle gatling burst — queue follow-up shots
 	if pu == PowerUpType.GATLING:
@@ -158,7 +166,7 @@ func _on_gatling_tick() -> void:
 	if not is_instance_valid(self):
 		return
 	_gatling_shots_remaining -= 1
-	shoot_requested.emit(global_position, _facing, player_id, PowerUpType.GATLING)
+	shoot_requested.emit(global_position + _facing * BARREL_OFFSET, _facing, player_id, PowerUpType.GATLING)
 
 	if _gatling_shots_remaining > 0:
 		# Schedule next shot — track for cleanup
@@ -207,16 +215,63 @@ func apply_powerup(type: int) -> void:
 func _draw() -> void:
 	var s := TANK_SIZE
 
-	# Body
-	draw_rect(Rect2(-s, -s, s * 2.0, s * 2.0), _body_color)
+	# ── Drop shadow ──
+	draw_rect(Rect2(-s + 2, -s + 2, s * 2.0, s * 2.0), Color(0, 0, 0, 0.25))
 
-	# Treads
-	draw_rect(Rect2(-s - 2, -s - 2, s * 2.0 + 4, 4), _tread_color)
-	draw_rect(Rect2(-s - 2, s - 2, s * 2.0 + 4, 4), _tread_color)
+	# ── Treads (wider bands with alternating stripes) ──
+	var tw := s * 2.0 + 6.0
+	var th := 5.0
+	# Top tread background
+	draw_rect(Rect2(-s - 3, -s - 3, tw, th), _tread_color)
+	# Bottom tread background
+	draw_rect(Rect2(-s - 3, s - 2, tw, th), _tread_color)
+	# Tread stripes (alternating lighter/darker)
+	var stripe_count := 4
+	var sw := tw / stripe_count
+	for i in stripe_count:
+		var x := -s - 3 + i * sw
+		var shade := 1.2 if i % 2 == 0 else 0.8
+		var sc := Color(_tread_color.r * shade, _tread_color.g * shade, _tread_color.b * shade, 1.0)
+		draw_rect(Rect2(x, -s - 3, sw, th), sc)
+		draw_rect(Rect2(x, s - 2, sw, th), sc)
 
-	# Barrel (extends RIGHT from center = facing direction at rotation 0)
+	# ── Body (rounded corners via octagonal polygon) ──
+	var cr := 4.0
+	var pts := PackedVector2Array([
+		Vector2(-s + cr, -s),
+		Vector2( s - cr, -s),
+		Vector2( s, -s + cr),
+		Vector2( s,  s - cr),
+		Vector2( s - cr,  s),
+		Vector2(-s + cr,  s),
+		Vector2(-s,  s - cr),
+		Vector2(-s, -s + cr),
+	])
+	draw_colored_polygon(pts, _body_color)
+
+	# ── Barrel (wider, with highlight and muzzle ring) ──
 	var barrel_len := s + 10.0
-	draw_rect(Rect2(0, -2, barrel_len - s * 0.3, 4), _barrel_color)
+	var bw := 4.0
+	# Main barrel body (10px wide: -5 to +5)
+	draw_rect(Rect2(0, -bw, barrel_len - s * 0.3, bw * 2.0), _barrel_color)
+	# Barrel highlight — thin lighter stripe along top edge
+	var hl := Color(_barrel_color.r * 1.3, _barrel_color.g * 1.3, _barrel_color.b * 1.3, 0.6)
+	draw_rect(Rect2(0, -bw, barrel_len - s * 0.3, 2.0), hl)
+	# Muzzle ring at barrel tip
+	var mx := barrel_len - s * 0.3 - 2.0
+	draw_rect(Rect2(mx, -bw - 1, 3.0, bw * 2.0 + 2.0), Color.WHITE)
 
-	# Turret dome
-	draw_circle(Vector2.ZERO, s * 0.45, Color.WHITE)
+	# ── Turret dome (concentric gradient circles + specular highlight) ──
+	var dr := s * 0.45
+	# Outer ring (darkest)
+	draw_circle(Vector2.ZERO, dr, Color.WHITE * 0.7)
+	# Mid ring (medium)
+	draw_circle(Vector2.ZERO, dr * 0.75, Color.WHITE * 0.85)
+	# Inner ring (brightest)
+	draw_circle(Vector2.ZERO, dr * 0.5, Color.WHITE)
+	# Specular highlight — small white dot offset top-left
+	draw_circle(Vector2(-dr * 0.2, -dr * 0.2), dr * 0.2, Color(1, 1, 1, 0.8))
+
+	# ── Engine glow — small colored rect at rear (left side) ──
+	var eg := Color(_body_color.r * 1.5, _body_color.g * 1.5, _body_color.b * 1.5, 0.5)
+	draw_rect(Rect2(-s - 3, -s * 0.3, 4.0, s * 0.6), eg)

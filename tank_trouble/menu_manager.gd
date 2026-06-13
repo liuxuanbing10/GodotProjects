@@ -125,7 +125,41 @@ func _draw() -> void:
 		draw_string(f, Vector2(r.position.x + 20, r.position.y + 33),
 				label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 
-	# ── Controls hint ──
-	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 120, 530),
-			"WASD/Arrows to navigate  |  Enter to select  |  ESC to close",
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.5, 0.5, 0.5))
+	# ── 5. Controls hint with shadow ──
+	var hint := "WASD/Arrows to navigate  |  Enter to select  |  ESC to close"
+	var hint_pos := Vector2(Constants.ARENA_W / 2.0 - 120, 530)
+	draw_string(f, hint_pos + Vector2(1, 1), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
+			Color(0, 0, 0, 0.4))
+	draw_string(f, hint_pos, hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.5, 0.5, 0.5))
+
+
+# ── Helpers ──────────────────────────────────────────────────
+static func _rounded_rect_points(rect: Rect2, r: float, seg: int = 6) -> PackedVector2Array:
+	"""Return a closed polygon approximating a rounded rectangle."""
+	var pts := PackedVector2Array()
+	var x := rect.position.x
+	var y := rect.position.y
+	var w := rect.size.x
+	var h := rect.size.y
+
+	# Top-right corner arc (270° → 0°)
+	for i in range(seg + 1):
+		var a := PI * 1.5 + PI * 0.5 * i / seg
+		pts.append(Vector2(x + w - r + cos(a) * r, y + r + sin(a) * r))
+
+	# Bottom-right corner arc (0° → 90°)
+	for i in range(seg + 1):
+		var a := PI * 0.5 * i / seg
+		pts.append(Vector2(x + w - r + cos(a) * r, y + h - r + sin(a) * r))
+
+	# Bottom-left corner arc (90° → 180°)
+	for i in range(seg + 1):
+		var a := PI * 0.5 + PI * 0.5 * i / seg
+		pts.append(Vector2(x + r + cos(a) * r, y + h - r + sin(a) * r))
+
+	# Top-left corner arc (180° → 270°)
+	for i in range(seg + 1):
+		var a := PI + PI * 0.5 * i / seg
+		pts.append(Vector2(x + r + cos(a) * r, y + r + sin(a) * r))
+
+	return pts
