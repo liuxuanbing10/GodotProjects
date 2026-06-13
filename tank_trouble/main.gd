@@ -8,13 +8,7 @@ extends Node2D
 enum GameState { MENU, PLAYING, ROUND_TRANSITION, GAME_OVER }
 enum GameMode { MODE_1P, MODE_2P, MODE_3P }
 
-# ── Arena constants ────────────────────────────────────────
-const ARENA_W := 960.0
-const ARENA_H := 640.0
-const CELL := 40
-const GRID_COLS := 24
-const GRID_ROWS := 16
-const WIN_SCORE := 5
+
 
 # ── Spawn positions (world coords) ────────────────────────
 const SPAWN_P1 := Vector2(60.0, 60.0)
@@ -54,6 +48,7 @@ var scores := [0, 0, 0]
 var round_num := 0
 var round_active := false
 var current_maze: Array = []
+var _wall_cells: Array[Vector2] = []
 
 # ── Node references ───────────────────────────────────────
 var tanks: Array[Node] = []
@@ -140,7 +135,7 @@ func _act(name: String, key: int) -> void:
 
 
 func _build_menu() -> void:
-	var cx := int(ARENA_W / 2)
+	var cx := int(Constants.ARENA_W / 2)
 	_menu_btns = [
 		{"r": Rect2(cx - 150, 260, 300, 50), "l": "1 Player (vs Laika)", "m": GameMode.MODE_1P},
 		{"r": Rect2(cx - 150, 330, 300, 50), "l": "2 Players",             "m": GameMode.MODE_2P},
@@ -161,20 +156,26 @@ func _draw() -> void:
 		if _laser_hit:
 			draw_circle(_laser_b, 6.0, Color(1.0, 0.3, 0.3, a * 0.7))
 
+	# Draw walls (not on menu)
+	if state != GameState.MENU:
+		for cell in _wall_cells:
+			draw_rect(Rect2(cell.x - Constants.CELL * 0.5, cell.y - Constants.CELL * 0.5,
+					Constants.CELL, Constants.CELL), Color(0.4, 0.35, 0.3))
+
 
 func _draw_menu() -> void:
-	draw_rect(Rect2(0, 0, ARENA_W, ARENA_H), Color(0.08, 0.08, 0.12))
+	draw_rect(Rect2(0, 0, Constants.ARENA_W, Constants.ARENA_H), Color(0.08, 0.08, 0.12))
 	var f := ThemeDB.fallback_font
 	var fs := ThemeDB.fallback_font_size
 
 	# Title + shadow
-	draw_string(f, Vector2(ARENA_W / 2.0 - 168, 102),
+	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 168, 102),
 			"TANK TROUBLE", HORIZONTAL_ALIGNMENT_LEFT, -1, fs * 3, Color(0, 0, 0, 0.3))
-	draw_string(f, Vector2(ARENA_W / 2.0 - 170, 100),
+	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 170, 100),
 			"TANK TROUBLE", HORIZONTAL_ALIGNMENT_LEFT, -1, fs * 3, Color(1.0, 0.85, 0.2))
 
 	# Subtitle
-	draw_string(f, Vector2(ARENA_W / 2.0 - 60, 155),
+	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 60, 155),
 			"坦克动荡", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.7, 0.7, 0.7))
 
 	# Buttons
@@ -188,10 +189,10 @@ func _draw_menu() -> void:
 				b.l, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 
 	# Settings gear + sound indicator
-	var gear := Vector2(ARENA_W - 45, 30)
+	var gear := Vector2(Constants.ARENA_W - 45, 30)
 	draw_circle(gear, 12, Color(0.5, 0.5, 0.5))
 	draw_circle(gear, 8, Color(0.08, 0.08, 0.12))
-	draw_string(f, Vector2(ARENA_W - 55, 38),
+	draw_string(f, Vector2(Constants.ARENA_W - 55, 38),
 			"♪" if _sound_on else "✕", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 
 
@@ -220,7 +221,7 @@ func _menu_input(event: InputEvent) -> void:
 				_start_game(b.m)
 				return
 		# Settings gear
-		if mp.distance_to(Vector2(ARENA_W - 45, 30)) < 16:
+		if mp.distance_to(Vector2(Constants.ARENA_W - 45, 30)) < 16:
 			_sound_on = not _sound_on
 			queue_redraw()
 	elif event is InputEventMouseMotion:
@@ -257,17 +258,22 @@ func _process(delta: float) -> void:
 			if _shake_t <= 0.0:
 				camera.offset = Vector2.ZERO
 
-	# P3 mouse control (treat as AI; main.gd sets ai_move_vector directly)
+	# P3 mouse control — sets rotation/thrust AI inputs instead of ai_move_vector
 	if state == GameState.PLAYING and game_mode == GameMode.MODE_3P and tanks.size() >= 3:
 		var p3 := tanks[2]
 		if is_instance_valid(p3):
 			var mp: Vector2 = get_global_mouse_position()
 			var p3pos: Vector2 = p3.global_position
-			var d: Vector2 = mp - p3pos
-			if d.length_squared() > 100.0:
-				p3.ai_move_vector = d.normalized()
+			var to_mouse := mp - p3pos
+			if to_mouse.length_squared() > 100.0:
+				to_mouse = to_mouse.normalized()
+				var facing := Vector2.RIGHT.rotated(p3.rotation)
+				var angle_diff := facing.angle_to(to_mouse)
+				p3.ai_rotation_input = clampf(angle_diff / deg_to_rad(45.0), -1.0, 1.0)
+				p3.ai_thrust_input = 1.0
 			else:
-				p3.ai_move_vector = Vector2.ZERO
+				p3.ai_rotation_input = 0.0
+				p3.ai_thrust_input = 0.0
 			p3.ai_wants_shoot = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
 
@@ -384,6 +390,8 @@ func _cleanup_round() -> void:
 		hud_node.queue_free()
 		hud_node = null
 
+	_wall_cells.clear()
+
 
 func _end_round(winner_id: int) -> void:
 	if not round_active:
@@ -400,7 +408,7 @@ func _end_round(winner_id: int) -> void:
 	scores[winner_id] += 1
 	hud_node.update_scores(scores)
 
-	if scores[winner_id] >= WIN_SCORE:
+	if scores[winner_id] >= Constants.WIN_SCORE:
 		var is_ai_win := game_mode == GameMode.MODE_1P and winner_id == 1
 		hud_node.show_game_over(winner_id, is_ai_win)
 		state = GameState.GAME_OVER
@@ -460,15 +468,18 @@ func _build_arena(maze: Array) -> void:
 	add_child(wall_container)
 
 	var shape := RectangleShape2D.new()
-	shape.size = Vector2(CELL, CELL)
+	shape.size = Vector2(Constants.CELL, Constants.CELL)
 
-	for row in GRID_ROWS:
-		for col in GRID_COLS:
+	for row in Constants.GRID_ROWS:
+		for col in Constants.GRID_COLS:
 			if maze[row][col] == 1:
 				var cs := CollisionShape2D.new()
 				cs.shape = shape
-				cs.position = Vector2(col * CELL + CELL * 0.5, row * CELL + CELL * 0.5)
+				cs.position = Vector2(col * Constants.CELL + Constants.CELL * 0.5, row * Constants.CELL + Constants.CELL * 0.5)
 				wall_container.add_child(cs)
+				_wall_cells.append(cs.position)
+
+	queue_redraw()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -604,7 +615,7 @@ func _spawn_powerup() -> void:
 	# Exclude cells occupied by tanks
 	var valid: Array[Vector2i] = []
 	for cell in open:
-		var wp := Vector2(cell.x * CELL + CELL * 0.5, cell.y * CELL + CELL * 0.5)
+		var wp := Vector2(cell.x * Constants.CELL + Constants.CELL * 0.5, cell.y * Constants.CELL + Constants.CELL * 0.5)
 		var occ := false
 		for t in tanks:
 			if is_instance_valid(t) and t.global_position.distance_to(wp) < 40.0:
@@ -617,7 +628,7 @@ func _spawn_powerup() -> void:
 		return
 
 	var cell := valid[randi() % valid.size()]
-	var wp := Vector2(cell.x * CELL + CELL * 0.5, cell.y * CELL + CELL * 0.5)
+	var wp := Vector2(cell.x * Constants.CELL + Constants.CELL * 0.5, cell.y * Constants.CELL + Constants.CELL * 0.5)
 	var pt := randi() % 5  # 0..4 (powerup.gd PowerUpType enum)
 
 	var pu := Area2D.new()

@@ -23,4 +23,15 @@ window/size/initial_position_type=0
 window/size/window_width_override=960
 window/size/window_height_override=640
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+
+[dotnet]
+
+project/assembly_name="坦克动荡"
+
+[autoload]
+
+Constants="*res://constants.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("godot_mcp")

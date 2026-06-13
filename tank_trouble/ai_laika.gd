@@ -2,8 +2,8 @@ extends Node
 
 ## Laika AI Controller
 ##
-## Attached as a child of a Tank node. Sets host_tank.ai_move_vector and
-## host_tank.ai_wants_shoot each physics frame.
+## Attached as a child of a Tank node. Sets host_tank.ai_rotation_input,
+## host_tank.ai_thrust_input and host_tank.ai_wants_shoot each physics frame.
 ##
 ## Uses A* pathfinding on the 24x16 maze grid and predictive shooting.
 ## Features: strafing at close range, power-up seeking, predictive pathfinding.
@@ -17,9 +17,6 @@ const AIM_DEVIATION := deg_to_rad(5.0)
 const BULLET_SPEED := 380.0
 const WAYPOINT_RADIUS := 20.0
 const STUCK_TIMEOUT := 0.5
-const GRID_COLS := 24
-const GRID_ROWS := 16
-const CELL := 40.0
 
 # ── AI behaviour tuning ───────────────────────────────────
 const STRAFE_DIST := 200.0        # Within this distance, strafe instead of pathfind
@@ -82,9 +79,9 @@ func _physics_process(delta: float) -> void:
 		if to_enemy.length_squared() > 0.001:
 			var perp := Vector2(-to_enemy.y, to_enemy.x).normalized()
 			# Pick strafe direction that doesn't face a wall
-			if not _is_blocked(_world_to_grid(host_tank.global_position + perp * CELL * 0.6)):
+			if not _is_blocked(_world_to_grid(host_tank.global_position + perp * Constants.CELL * 0.6)):
 				move_dir = perp.rotated(_rng.randf_range(-AIM_DEVIATION, AIM_DEVIATION))
-			elif not _is_blocked(_world_to_grid(host_tank.global_position - perp * CELL * 0.6)):
+			elif not _is_blocked(_world_to_grid(host_tank.global_position - perp * Constants.CELL * 0.6)):
 				move_dir = (-perp).rotated(_rng.randf_range(-AIM_DEVIATION, AIM_DEVIATION))
 
 	# Priority 2: Follow A* path
@@ -111,7 +108,16 @@ func _physics_process(delta: float) -> void:
 	# Track position every frame
 	_last_pos = host_tank.global_position
 
-	host_tank.ai_move_vector = move_dir
+	# Convert desired movement direction to rotate+thrust controls
+	if move_dir.length_squared() > 0.001:
+		var current_facing := Vector2.RIGHT.rotated(host_tank.rotation)
+		var angle_diff := current_facing.angle_to(move_dir.normalized())
+		host_tank.ai_rotation_input = clampf(angle_diff / deg_to_rad(45.0), -1.0, 1.0)
+		# Apply thrust when roughly aligned (within ~60 deg)
+		host_tank.ai_thrust_input = 1.0 if absf(angle_diff) < deg_to_rad(60.0) else 0.0
+	else:
+		host_tank.ai_rotation_input = 0.0
+		host_tank.ai_thrust_input = 0.0
 
 	# ── Shooting ──
 	if nearest and _should_shoot(nearest, dist_to_enemy):
@@ -137,8 +143,7 @@ func _should_shoot(nearest: Node, dist: float) -> bool:
 		target_pos += enemy_vel * travel_time
 
 	var predicted_dir: Vector2 = (target_pos - host_tank.global_position).normalized()
-	var facing_dir: Vector2 = host_tank.ai_move_vector\
-			if host_tank.ai_move_vector.length_squared() > 0.001 else Vector2.UP
+	var facing_dir: Vector2 = Vector2.RIGHT.rotated(host_tank.rotation)
 
 	# Apply AIM_DEVIATION so Laika isn't perfectly accurate
 	var effective_facing := facing_dir.rotated(_rng.randf_range(-AIM_DEVIATION, AIM_DEVIATION))
@@ -194,7 +199,7 @@ func _smart_wander_dir() -> Vector2:
 	var dirs := [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]
 	dirs.shuffle()
 	for d in dirs:
-		var next_cell := _world_to_grid(host_tank.global_position + d * CELL)
+		var next_cell := _world_to_grid(host_tank.global_position + d * Constants.CELL)
 		if not _is_blocked(next_cell):
 			return d
 	return Vector2.DOWN
@@ -208,7 +213,7 @@ func _is_blocked(cell: Vector2i) -> bool:
 
 
 static func _clamp_grid(cell: Vector2i) -> Vector2i:
-	return Vector2i(clampi(cell.x, 0, GRID_COLS - 1), clampi(cell.y, 0, GRID_ROWS - 1))
+	return Vector2i(clampi(cell.x, 0, Constants.GRID_COLS - 1), clampi(cell.y, 0, Constants.GRID_ROWS - 1))
 
 
 # ── Enemy detection ────────────────────────────────────────
@@ -227,11 +232,11 @@ func _find_nearest_enemy() -> Node:
 
 # ── Coordinate helpers ─────────────────────────────────────
 static func _world_to_grid(pos: Vector2) -> Vector2i:
-	return Vector2i(int(pos.x / CELL), int(pos.y / CELL))
+	return Vector2i(int(pos.x / Constants.CELL), int(pos.y / Constants.CELL))
 
 
 static func _grid_to_world(cell: Vector2i) -> Vector2:
-	return Vector2(cell.x * CELL + CELL / 2.0, cell.y * CELL + CELL / 2.0)
+	return Vector2(cell.x * Constants.CELL + Constants.CELL / 2.0, cell.y * Constants.CELL + Constants.CELL / 2.0)
 
 
 # ── A* pathfinding ─────────────────────────────────────────
@@ -292,11 +297,11 @@ static func _heuristic(a: Vector2i, b: Vector2i) -> float:
 
 
 static func _in_bounds(c: Vector2i) -> bool:
-	return c.x >= 0 and c.x < GRID_COLS and c.y >= 0 and c.y < GRID_ROWS
+	return c.x >= 0 and c.x < Constants.GRID_COLS and c.y >= 0 and c.y < Constants.GRID_ROWS
 
 
 static func _keyi(c: Vector2i) -> int:
-	return c.y * GRID_COLS + c.x
+	return c.y * Constants.GRID_COLS + c.x
 
 
 static func _in_list(list: Array[Vector2i], c: Vector2i) -> bool:

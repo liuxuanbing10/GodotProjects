@@ -2,8 +2,7 @@ extends CanvasLayer
 class_name HUD
 
 # --- Arena constants ---
-const ARENA_W := 960.0
-const ARENA_H := 640.0
+
 
 # --- Properties ---
 var score_labels: Array[Label] = []
@@ -33,7 +32,7 @@ func setup(player_count: int) -> void:
 		remove_child(child)
 
 	# --- Score bar (single combined label) ---
-	var center_x: float = ARENA_W / 2.0
+	var center_x: float = Constants.ARENA_W / 2.0
 	var score_bar := Label.new()
 	score_bar.add_theme_font_size_override("font_size", 20)
 	score_bar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -56,7 +55,7 @@ func setup(player_count: int) -> void:
 	round_label.hide()
 	round_label.add_theme_font_size_override("font_size", 28)
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	round_label.position = Vector2(center_x - 100, ARENA_H * 0.3)
+	round_label.position = Vector2(center_x - 100, Constants.ARENA_H * 0.3)
 	round_label.size = Vector2(200, 40)
 	add_child(round_label)
 
@@ -65,7 +64,7 @@ func setup(player_count: int) -> void:
 	result_label.hide()
 	result_label.add_theme_font_size_override("font_size", 36)
 	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	result_label.position = Vector2(center_x - 150, ARENA_H * 0.4)
+	result_label.position = Vector2(center_x - 150, Constants.ARENA_H * 0.4)
 	result_label.size = Vector2(300, 50)
 	add_child(result_label)
 
@@ -74,7 +73,7 @@ func setup(player_count: int) -> void:
 	game_over_label.hide()
 	game_over_label.add_theme_font_size_override("font_size", 48)
 	game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	game_over_label.position = Vector2(center_x - 200, ARENA_H * 0.35)
+	game_over_label.position = Vector2(center_x - 200, Constants.ARENA_H * 0.35)
 	game_over_label.size = Vector2(400, 60)
 	add_child(game_over_label)
 
@@ -85,7 +84,7 @@ func setup(player_count: int) -> void:
 	continue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	continue_label.text = "Press ENTER to continue"
 	continue_label.modulate = Color(0.5, 0.5, 0.5)  # GRAY
-	continue_label.position = Vector2(center_x - 150, ARENA_H * 0.5)
+	continue_label.position = Vector2(center_x - 150, Constants.ARENA_H * 0.5)
 	continue_label.size = Vector2(300, 30)
 	add_child(continue_label)
 
@@ -94,7 +93,7 @@ func setup(player_count: int) -> void:
 	controls_hint_label.hide()
 	controls_hint_label.add_theme_font_size_override("font_size", 14)
 	controls_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	controls_hint_label.position = Vector2(center_x - 200, ARENA_H - 40)
+	controls_hint_label.position = Vector2(center_x - 200, Constants.ARENA_H - 40)
 	controls_hint_label.size = Vector2(400, 30)
 	add_child(controls_hint_label)
 

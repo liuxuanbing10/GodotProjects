@@ -10,6 +10,7 @@ const TANK_SIZE := 18.0
 const SHOOT_COOLDOWN := 0.35
 const GATLING_INTERVAL := 0.15
 const GATLING_SHOTS := 3
+const ROTATION_SPEED := 3.0
 
 enum PowerUpType { NONE, BIG_SHOT, LASER, FRAG_BOMB, GATLING, HOMING }
 
@@ -19,7 +20,8 @@ var current_powerup := PowerUpType.NONE
 
 # AI control — set by AI controller
 var is_ai := false
-var ai_move_vector := Vector2.ZERO
+var ai_rotation_input := 0.0
+var ai_thrust_input := 0.0
 var ai_wants_shoot := false
 
 # ── Private state ──────────────────────────────────────────
@@ -60,6 +62,7 @@ func setup(id: int, pos: Vector2, body_col: Color, barrel_col: Color, tread_col:
 	_action_down = down
 	_action_shoot = shoot
 	is_ai = ai
+	rotation = -PI / 2.0  # Face UP initially (rotation 0 = RIGHT)
 
 	# Collision: layer 2 (tanks), mask 1 (walls) + 2 (other tanks)
 	collision_layer = 2
@@ -89,17 +92,21 @@ func _cleanup_timers() -> void:
 
 
 # ── Physics ────────────────────────────────────────────────
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not is_inside_tree():
 		return
 
-	var dir := _get_move_dir()
-	if dir.length_squared() > 0.01:
-		dir = dir.normalized()
-		_facing = dir
-		rotation = dir.angle()
+	# Rotate
+	var rot := _get_rotation_input()
+	rotation += rot * ROTATION_SPEED * delta
 
-	velocity = dir * SPEED
+	# Facing direction derived from rotation
+	var facing_dir := Vector2.RIGHT.rotated(rotation)
+	_facing = facing_dir
+
+	# Thrust
+	var thrust := _get_thrust_input()
+	velocity = facing_dir * thrust * SPEED
 	move_and_slide()
 
 	# Shooting
@@ -109,13 +116,18 @@ func _physics_process(_delta: float) -> void:
 		_shoot()
 
 
-func _get_move_dir() -> Vector2:
+func _get_rotation_input() -> float:
 	if is_ai:
-		return ai_move_vector
+		return ai_rotation_input
+	return Input.get_axis(_action_left, _action_right)
 
-	var dx := Input.get_axis(_action_left, _action_right)
-	var dy := Input.get_axis(_action_up, _action_down)
-	return Vector2(dx, dy)
+
+func _get_thrust_input() -> float:
+	if is_ai:
+		return ai_thrust_input
+	# get_axis(up, down): up=-1, down=+1
+	# Negate so: up=+1(forward), down=-1(reverse)
+	return -Input.get_axis(_action_up, _action_down)
 
 
 func _wants_to_shoot() -> bool:
@@ -202,9 +214,9 @@ func _draw() -> void:
 	draw_rect(Rect2(-s - 2, -s - 2, s * 2.0 + 4, 4), _tread_color)
 	draw_rect(Rect2(-s - 2, s - 2, s * 2.0 + 4, 4), _tread_color)
 
-	# Barrel (drawn facing UP; rotation handles all directions)
+	# Barrel (extends RIGHT from center = facing direction at rotation 0)
 	var barrel_len := s + 10.0
-	draw_rect(Rect2(-2, -barrel_len, 4, barrel_len - s * 0.3), _barrel_color)
+	draw_rect(Rect2(0, -2, barrel_len - s * 0.3, 4), _barrel_color)
 
 	# Turret dome
 	draw_circle(Vector2.ZERO, s * 0.45, Color.WHITE)

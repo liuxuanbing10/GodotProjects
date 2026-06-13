@@ -5,10 +5,6 @@ extends Control
 ## Attached as a child of main. Toggled via Escape during PLAYING state.
 ## Runs while the scene tree is paused (PROCESS_MODE_ALWAYS).
 
-# ── Arena constants────────────────────────────────────────────
-const ARENA_W := 960.0
-const ARENA_H := 640.0
-
 # ── Signals ──────────────────────────────────────────────────
 signal resume_pressed()
 signal sound_toggled(on: bool)
@@ -63,7 +59,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var mp: Vector2 = event.position
 		for i in OPTIONS.size():
-			var r := Rect2(ARENA_W / 2.0 - 120, 280 + i * 65, 240, 48)
+			var r := Rect2(Constants.ARENA_W / 2.0 - 120, 280 + i * 65, 240, 48)
 			if r.has_point(mp):
 				get_viewport().set_input_as_handled()
 				_execute_option(i)
@@ -102,20 +98,20 @@ func _draw() -> void:
 		return
 
 	# Semi-transparent backdrop
-	draw_rect(Rect2(0, 0, ARENA_W, ARENA_H), Color(0, 0, 0, 0.65))
+	draw_rect(Rect2(0, 0, Constants.ARENA_W, Constants.ARENA_H), Color(0, 0, 0, 0.65))
 
 	var f := ThemeDB.fallback_font
 	var fs := ThemeDB.fallback_font_size
 
 	# ── Title ──
-	draw_string(f, Vector2(ARENA_W / 2.0 - 90, 180),
+	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 90, 180),
 			"PAUSED", HORIZONTAL_ALIGNMENT_LEFT, -1, fs * 2,
 			Color(1.0, 0.85, 0.2))
 
 	# ── Buttons ──
 	for i in OPTIONS.size():
 		var y := 280 + i * 65
-		var r := Rect2(ARENA_W / 2.0 - 120, y, 240, 48)
+		var r := Rect2(Constants.ARENA_W / 2.0 - 120, y, 240, 48)
 
 		var hover := i == selected
 		var bg := Color(0.35, 0.35, 0.42) if hover else Color(0.2, 0.2, 0.26)
@@ -130,6 +126,6 @@ func _draw() -> void:
 				label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 
 	# ── Controls hint ──
-	draw_string(f, Vector2(ARENA_W / 2.0 - 120, 530),
+	draw_string(f, Vector2(Constants.ARENA_W / 2.0 - 120, 530),
 			"WASD/Arrows to navigate  |  Enter to select  |  ESC to close",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.5, 0.5, 0.5))

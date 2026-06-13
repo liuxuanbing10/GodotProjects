@@ -7,10 +7,6 @@ extends Node
 ##
 ## Grid (col, row) → World coordinates: Vector2(col * 40 + 20, row * 40 + 20)
 
-const COLS := 24
-const ROWS := 16
-const CELL := 40
-
 ## Generates a maze as Array[Array[int]] where 1 = wall, 0 = open.
 ## Uses random wall clusters with connectivity validation.
 ## Falls back to a 4-room layout if all random attempts fail.
@@ -27,8 +23,8 @@ static func generate() -> Array:
 ## Returns all open (walkable) cells in the maze.
 static func get_open_cells(maze: Array) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
-	for row in range(ROWS):
-		for col in range(COLS):
+	for row in range(Constants.GRID_ROWS):
+		for col in range(Constants.GRID_COLS):
 			if maze[row][col] == 0:
 				cells.append(Vector2i(col, row))
 	return cells
@@ -58,7 +54,7 @@ static func is_maze_connected(maze: Array, start: Vector2i, targets: Array[Vecto
 		# Four-directional neighbours
 		for dir in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
 			var next = current + dir
-			if next.x < 0 or next.x >= COLS or next.y < 0 or next.y >= ROWS:
+			if next.x < 0 or next.x >= Constants.GRID_COLS or next.y < 0 or next.y >= Constants.GRID_ROWS:
 				continue
 			if maze[next.y][next.x] == 0 and not visited.has(str(next)):
 				queue.append(next)
@@ -75,10 +71,10 @@ static func is_maze_connected(maze: Array, start: Vector2i, targets: Array[Vecto
 ## walls (1), all interior cells are open (0).
 static func _create_empty_maze() -> Array:
 	var maze: Array = []
-	for row in range(ROWS):
+	for row in range(Constants.GRID_ROWS):
 		maze.append([])
-		for col in range(COLS):
-			if row == 0 or row == ROWS - 1 or col == 0 or col == COLS - 1:
+		for col in range(Constants.GRID_COLS):
+			if row == 0 or row == Constants.GRID_ROWS - 1 or col == 0 or col == Constants.GRID_COLS - 1:
 				maze[row].append(1)   # border wall
 			else:
 				maze[row].append(0)   # interior open
@@ -107,8 +103,8 @@ static func _place_random_clusters(maze: Array) -> void:
 		# Try up to 10 positions for this cluster
 		var placed = false
 		for _j in range(10):
-			var col = rng.randi_range(2, COLS - 2 - w)
-			var row = rng.randi_range(2, ROWS - 2 - h)
+			var col = rng.randi_range(2, Constants.GRID_COLS - 2 - w)
+			var row = rng.randi_range(2, Constants.GRID_ROWS - 2 - h)
 
 			# Reject if the cluster covers a spawn corner
 			var rect = Rect2i(col, row, w, h)
@@ -124,7 +120,7 @@ static func _place_random_clusters(maze: Array) -> void:
 			var too_close = false
 			for ry in range(row - 1, row + h + 1):
 				for rx in range(col - 1, col + w + 1):
-					if ry < 0 or ry >= ROWS or rx < 0 or rx >= COLS:
+					if ry < 0 or ry >= Constants.GRID_ROWS or rx < 0 or rx >= Constants.GRID_COLS:
 						continue
 					if maze[ry][rx] == 1:
 						too_close = true
@@ -168,8 +164,8 @@ static func _validate_maze(maze: Array) -> bool:
 	# At least 30 % of interior cells must be open
 	var open_count := 0
 	var interior_count := 0
-	for row in range(1, ROWS - 1):
-		for col in range(1, COLS - 1):
+	for row in range(1, Constants.GRID_ROWS - 1):
+		for col in range(1, Constants.GRID_COLS - 1):
 			interior_count += 1
 			if maze[row][col] == 0:
 				open_count += 1
