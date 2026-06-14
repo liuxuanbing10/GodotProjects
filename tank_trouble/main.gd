@@ -26,9 +26,11 @@ const POWERUP_SPAWN_MAX := 8.0
 const MAX_POWERUPS := 3
 const LASER_LENGTH := 800.0
 const LASER_FADE := 0.2
-const TRANSITION_DELAY := 1.5
+const TRANSITION_DELAY := 1.8
 const SHAKE_STR := 4.0
 const SHAKE_LEN := 0.15
+const LEADING_ADVANTAGE_GAP := 2  # 领先多少分触发优势
+const LEADING_SPEED_BOOST := 1.25  # 领先时速度倍率
 
 # ── Preloads ───────────────────────────────────────────────
 const TankScript := preload("res://tank.gd")
@@ -49,6 +51,14 @@ var round_num := 0
 var round_active := false
 var current_maze: Array = []
 var _wall_cells: Array[Vector2] = []
+
+# ── Difficulty & Tank Selection ──────────────────────────────
+var selected_difficulty: int = Constants.Difficulty.NORMAL
+var selected_tank_type: int = Constants.TankType.BALANCED
+var _current_map_id: int = 0  # 用于成就追踪的地图ID
+
+# ── Achievement System ──────────────────────────────────────
+var achievement_system: Node = null
 
 # ── Node references ───────────────────────────────────────
 var tanks: Array[Node] = []
@@ -97,6 +107,14 @@ func _ready() -> void:
 		menu_manager.resume_pressed.connect(_on_pause_resume)
 		menu_manager.sound_toggled.connect(_on_pause_sound_toggled)
 		menu_manager.quit_pressed.connect(_on_pause_quit)
+		menu_manager.game_start_requested.connect(_on_game_start_requested)
+
+	# ── Achievement system ──
+	var AchievementScript := load("res://achievement_system.gd")
+	if AchievementScript:
+		achievement_system = AchievementScript.new()
+		add_child(achievement_system)
+		achievement_system.achievement_unlocked.connect(_on_achievement_unlocked)
 
 	queue_redraw()
 
@@ -397,7 +415,10 @@ func _start_round() -> void:
 	round_active = false
 	_cleanup_round()
 
-	current_maze = MazeGen.generate()
+	# 每5回合用一次预设地图，其余随机生成
+	var use_preset := (round_num % 5 == 0)
+	current_maze = MazeGen.get_map(use_preset, -1)
+	_current_map_id = round_num  # 简化地图ID用于成就追踪
 
 	# ── Arena ──
 	_build_arena(current_maze)
@@ -418,36 +439,52 @@ func _start_round() -> void:
 	# ── Tanks ──
 	tanks.clear()
 
+	# 领先优势：得分最高的玩家获得速度加成
+	var max_score := scores.max()
+	var leading_ids: Array[int] = []
+	for i in scores.size():
+		if scores[i] == max_score and max_score > 0:
+			leading_ids.append(i)
+
 	match game_mode:
 		GameMode.MODE_1P:
-			tanks.append(_create_tank(0, SPAWN_P1,
+			var p1_tank := _create_tank(0, SPAWN_P1,
 					P1_COL[0], P1_COL[1], P1_COL[2], false,
-					"p1_left", "p1_right", "p1_up", "p1_down", "p1_shoot"))
+					"p1_left", "p1_right", "p1_up", "p1_down", "p1_shoot",
+					selected_tank_type, 1.0)
+			tanks.append(p1_tank)
 			var ai := _create_tank(1, SPAWN_P2,
 					P2_COL[0], P2_COL[1], P2_COL[2], true,
-					"", "", "", "", "")
+					"", "", "", "", "",
+					Constants.DIFFICULTY_DEFAULT_TANK[selected_difficulty],
+					LEADING_SPEED_BOOST if 1 in leading_ids else 1.0)
 			tanks.append(ai)
-			_attach_ai(ai)
+			_attach_ai(ai, selected_difficulty)
 
 		GameMode.MODE_2P:
 			tanks.append(_create_tank(0, SPAWN_P1,
 					P1_COL[0], P1_COL[1], P1_COL[2], false,
-					"p1_left", "p1_right", "p1_up", "p1_down", "p1_shoot"))
+					"p1_left", "p1_right", "p1_up", "p1_down", "p1_shoot",
+					selected_tank_type, LEADING_SPEED_BOOST if 0 in leading_ids else 1.0))
 			tanks.append(_create_tank(1, SPAWN_P2,
 					P2_COL[0], P2_COL[1], P2_COL[2], false,
-					"p2_left", "p2_right", "p2_up", "p2_down", "p2_shoot"))
+					"p2_left", "p2_right", "p2_up", "p2_down", "p2_shoot",
+					selected_tank_type, LEADING_SPEED_BOOST if 1 in leading_ids else 1.0))
 
 		GameMode.MODE_3P:
 			tanks.append(_create_tank(0, SPAWN_P1,
 					P1_COL[0], P1_COL[1], P1_COL[2], false,
-					"p1_left", "p1_right", "p1_up", "p1_down", "p1_shoot"))
+					"p1_left", "p1_right", "p1_up", "p1_down", "p1_shoot",
+					selected_tank_type, LEADING_SPEED_BOOST if 0 in leading_ids else 1.0))
 			tanks.append(_create_tank(1, SPAWN_P2,
 					P2_COL[0], P2_COL[1], P2_COL[2], false,
-					"p2_left", "p2_right", "p2_up", "p2_down", "p2_shoot"))
-			# P3 uses is_ai=true so main.gd can drive it via ai_move_vector
+					"p2_left", "p2_right", "p2_up", "p2_down", "p2_shoot",
+					selected_tank_type, LEADING_SPEED_BOOST if 1 in leading_ids else 1.0))
 			tanks.append(_create_tank(2, SPAWN_P3,
 					P3_COL[0], P3_COL[1], P3_COL[2], true,
-					"", "", "", "", ""))
+					"", "", "", "", "",
+					Constants.DIFFICULTY_DEFAULT_TANK[selected_difficulty],
+					LEADING_SPEED_BOOST if 2 in leading_ids else 1.0))
 
 	# ── HUD ──
 	var pc := 1 if game_mode == GameMode.MODE_1P else (2 if game_mode == GameMode.MODE_2P else 3)
@@ -457,6 +494,10 @@ func _start_round() -> void:
 	hud_node.update_scores(scores)
 	hud_node.show_round_number(round_num)
 	hud_node.show_controls_hint()
+
+	# 通知成就系统回合开始
+	if achievement_system:
+		achievement_system.record_round_start()
 
 	# ── Powerup timer ──
 	powerup_timer = Timer.new()
@@ -510,6 +551,10 @@ func _end_round(winner_id: int) -> void:
 	scores[winner_id] += 1
 	hud_node.update_scores(scores)
 
+	# 通知成就系统
+	if achievement_system:
+		achievement_system.record_win(_current_map_id)
+
 	if scores[winner_id] >= Constants.WIN_SCORE:
 		var is_ai_win := game_mode == GameMode.MODE_1P and winner_id == 1
 		hud_node.show_game_over(winner_id, is_ai_win)
@@ -552,6 +597,19 @@ func _on_pause_quit() -> void:
 	_return_to_menu()
 
 
+func _on_game_start_requested(difficulty: int, tank_type: int) -> void:
+	selected_difficulty = difficulty
+	selected_tank_type = tank_type
+	_start_game(game_mode)
+
+
+func _on_achievement_unlocked(achievement: int, data: Dictionary) -> void:
+	# HUD will show achievement notification if available
+	if hud_node and is_instance_valid(hud_node):
+		hud_node.show_achievement(data.get("name", ""), data.get("desc", ""))
+	# 播放成就音效（音效基础设施就绪后在此添加）
+
+
 static func _clear_children(n: Node2D) -> void:
 	if not n or not is_instance_valid(n):
 		return
@@ -591,23 +649,26 @@ func _build_arena(maze: Array) -> void:
 func _create_tank(id: int, pos: Vector2,
 		body: Color, barrel: Color, tread: Color,
 		is_ai: bool,
-		left: String, right: String, up: String, down: String, shoot: String) -> Node:
+		left: String, right: String, up: String, down: String, shoot: String,
+		tank_type: int = Constants.TankType.BALANCED,
+		speed_mult: float = 1.0) -> Node:
 
 	var t := CharacterBody2D.new()
 	t.set_script(TankScript)
-	t.setup(id, pos, body, barrel, tread, left, right, up, down, shoot, is_ai)
+	t.setup(id, pos, body, barrel, tread, left, right, up, down, shoot, is_ai, tank_type, speed_mult)
 	t.shoot_requested.connect(_on_tank_shoot)
 	t.died.connect(_on_tank_died)
 	add_child(t)
 	return t
 
 
-func _attach_ai(tank_node: Node) -> void:
+func _attach_ai(tank_node: Node, difficulty: int = Constants.Difficulty.NORMAL) -> void:
 	if not AIScript:
 		return
 	var ai := Node.new()
 	ai.set_script(AIScript)
 	ai.setup(tank_node, current_maze)
+	ai.set_difficulty(difficulty)
 	tank_node.add_child(ai)
 
 
@@ -660,7 +721,7 @@ func _fire_laser(origin: Vector2, direction: Vector2, shooter_id: int) -> void:
 		_laser_hit = true
 		var hit: Node = r.collider
 		if hit and hit.has_method("hit"):
-			hit.hit()
+			hit.hit(Constants.BulletType.GATLING)  # 激光用GATLING作为类型标识
 			_spawn_explosion(hit.global_position, 30.0)
 	else:
 		_laser_b = origin + direction * LASER_LENGTH
@@ -671,7 +732,7 @@ func _fire_laser(origin: Vector2, direction: Vector2, shooter_id: int) -> void:
 # TANK DEATH
 # ═══════════════════════════════════════════════════════════
 
-func _on_tank_died(player_id: int) -> void:
+func _on_tank_died(player_id: int, bullet_type: int = -1) -> void:
 	if not round_active:
 		return
 
@@ -681,6 +742,11 @@ func _on_tank_died(player_id: int) -> void:
 			_spawn_explosion(t.global_position, 40.0)
 			break
 
+	# 通知成就系统：记录击杀类型（从击杀者的视角）
+	if achievement_system:
+		achievement_system.record_kill(bullet_type, _current_map_id)
+		achievement_system.record_death()
+
 	if game_mode == GameMode.MODE_3P:
 		# Last tank standing wins
 		var alive: Array[int] = []
@@ -688,10 +754,12 @@ func _on_tank_died(player_id: int) -> void:
 			if is_instance_valid(t):
 				alive.append(t.player_id)
 		if alive.size() <= 1:
-			_end_round(alive[0] if alive.size() == 1 else 0)
+			var winner := alive[0] if alive.size() == 1 else 0
+			_end_round(winner)
 	else:
 		# 1P / 2P: the other player scores
-		_end_round(1 - player_id)
+		var winner := 1 - player_id
+		_end_round(winner)
 
 
 # ═══════════════════════════════════════════════════════════

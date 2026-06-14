@@ -302,6 +302,34 @@ func show_controls_hint() -> void:
 	timer.start()
 
 
+# ── Achievement Notification ─────────────────────────────────
+func show_achievement(name: String, desc: String) -> void:
+	var lbl := Label.new()
+	lbl.text = "🏆 " + name + "\n" + desc
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.set("theme_override_colors/font_color", Color(1.0, 0.85, 0.2))
+	lbl.set("theme_override_font_sizes/font_outline_size", 3)
+	lbl.z_index = 200
+	add_child(lbl)
+
+	# 动画：从底部滑入居中，3秒后淡出
+	var tween := create_tween()
+	lbl.position = Vector2(size.x * 0.5 - 120, size.y - 80)
+	lbl.modulate = Color(1, 1, 1, 0)
+
+	# 滑入
+	tween.tween_property(lbl, "modulate:a", 1.0, 0.3)
+	tween.parallel().tween_property(lbl, "position:y", size.y - 130, 0.3)
+
+	# 停留2秒
+	tween.tween_interval(2.0)
+
+	# 淡出
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(lbl.queue_free)
+
+
 func _on_controls_hint_timeout(timer: Timer) -> void:
 	controls_hint_label.hide()
 	if is_instance_valid(timer):

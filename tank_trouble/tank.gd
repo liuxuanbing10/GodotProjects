@@ -18,6 +18,8 @@ const BARREL_OFFSET := 24.0
 
 # ── Public state ───────────────────────────────────────────
 var player_id := 0
+var tank_type: int = Constants.TankType.BALANCED
+var _speed_mult: float = 1.0  # 速度倍率（坦克类型+领先优势）
 var current_powerup := Constants.PowerUp.NONE
 
 # AI control — set by AI controller
@@ -49,7 +51,9 @@ var _action_shoot := ""
 # ── Setup ──────────────────────────────────────────────────
 func setup(id: int, pos: Vector2, body_col: Color, barrel_col: Color, tread_col: Color,
 		left: String, right: String, up: String, down: String, shoot: String,
-		ai: bool = false) -> void:
+		ai: bool = false,
+		tank_type: int = Constants.TankType.BALANCED,
+		speed_mult: float = 1.0) -> void:
 	player_id = id
 	position = pos
 	_body_color = body_col
@@ -61,6 +65,8 @@ func setup(id: int, pos: Vector2, body_col: Color, barrel_col: Color, tread_col:
 	_action_down = down
 	_action_shoot = shoot
 	is_ai = ai
+	self.tank_type = tank_type
+	_speed_mult = speed_mult
 	rotation = -PI / 2.0  # Face UP initially (rotation 0 = RIGHT)
 
 	# Collision: layer 2 (tanks), mask 1 (walls) + 2 (other tanks)
@@ -74,6 +80,14 @@ func setup(id: int, pos: Vector2, body_col: Color, barrel_col: Color, tread_col:
 	add_child(shape)
 
 	add_to_group("tanks")
+
+
+func set_tank_type(t: int) -> void:
+	tank_type = t
+
+func set_speed_mult(m: float) -> void:
+	_speed_mult = m
+
 
 # 不再需要 tree_exiting 清理 Timer 了（已改用浮点倒计时）
 
@@ -116,7 +130,7 @@ func _physics_process(delta: float) -> void:
 		rotation = lerp_angle(rotation, target_angle, 12.0 * delta)
 
 	# Move with smooth acceleration / deceleration
-	var target_vel := move_dir * SPEED
+	var target_vel := move_dir * SPEED * Constants.TANK_TYPE_PROPS[tank_type].speed * _speed_mult
 	if move_dir.length_squared() < 0.001:
 		velocity = velocity.lerp(Vector2.ZERO, 12.0 * delta)
 	else:
@@ -149,7 +163,7 @@ func _shoot() -> void:
 		_gatling_timer = GATLING_INTERVAL
 		# 第一发已在 shoot_requested.emit 中发出
 	else:
-		_cooldown = SHOOT_COOLDOWN
+		_cooldown = SHOOT_COOLDOWN * Constants.TANK_TYPE_PROPS[tank_type].cooldown
 
 
 func _on_gatling_tick() -> void:
@@ -161,12 +175,13 @@ func _on_gatling_tick() -> void:
 	if _gatling_shots_remaining > 0:
 		_gatling_timer = GATLING_INTERVAL
 	else:
-		_cooldown = SHOOT_COOLDOWN
+		_cooldown = SHOOT_COOLDOWN * Constants.TANK_TYPE_PROPS[tank_type].cooldown
 
 
 # ── Damage ─────────────────────────────────────────────────
-func hit() -> void:
-	died.emit(player_id)
+func hit(bullet_type: int = -1) -> void:
+	# bullet_type: 击杀来源的子弹类型（用于成就系统）
+	died.emit(player_id, bullet_type)
 	queue_free()
 
 
@@ -213,15 +228,15 @@ func _draw() -> void:
 		Vector2(-s,  s - cr),
 		Vector2(-s, -s + cr),
 	])
-	draw_colored_polygon(pts, _body_color)
+	draw_colored_polygon(pts, Constants.TANK_TYPE_PROPS[tank_type].color)
 
 	# ── Barrel (wider, with highlight and muzzle ring) ──
 	var barrel_len := s + 10.0
 	var bw := 4.0
 	# Main barrel body (10px wide: -5 to +5)
-	draw_rect(Rect2(0, -bw, barrel_len - s * 0.3, bw * 2.0), _barrel_color)
+	draw_rect(Rect2(0, -bw, barrel_len - s * 0.3, bw * 2.0), Constants.TANK_TYPE_PROPS[tank_type].color)
 	# Barrel highlight — thin lighter stripe along top edge
-	var hl := Color(_barrel_color.r * 1.3, _barrel_color.g * 1.3, _barrel_color.b * 1.3, 0.6)
+	var hl := Color(Constants.TANK_TYPE_PROPS[tank_type].color.r * 1.3, Constants.TANK_TYPE_PROPS[tank_type].color.g * 1.3, Constants.TANK_TYPE_PROPS[tank_type].color.b * 1.3, 0.6)
 	draw_rect(Rect2(0, -bw, barrel_len - s * 0.3, 2.0), hl)
 	# Muzzle ring at barrel tip
 	var mx := barrel_len - s * 0.3 - 2.0
@@ -239,5 +254,5 @@ func _draw() -> void:
 	draw_circle(Vector2(-dr * 0.2, -dr * 0.2), dr * 0.2, Color(1, 1, 1, 0.8))
 
 	# ── Engine glow — small colored rect at rear (left side) ──
-	var eg := Color(_body_color.r * 1.5, _body_color.g * 1.5, _body_color.b * 1.5, 0.5)
+	var eg := Color(Constants.TANK_TYPE_PROPS[tank_type].color.r * 1.5, Constants.TANK_TYPE_PROPS[tank_type].color.g * 1.5, Constants.TANK_TYPE_PROPS[tank_type].color.b * 1.5, 0.5)
 	draw_rect(Rect2(-s - 3, -s * 0.3, 4.0, s * 0.6), eg)

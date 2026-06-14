@@ -20,6 +20,24 @@ static func generate() -> Array:
 	return _generate_fallback()
 
 
+## 返回预设地图
+static func get_preset_map(index: int) -> Array:
+	return Constants.PRESET_MAPS[index]
+
+
+## 返回预设地图或随机生成地图
+## use_preset: true=使用预设地图(每5回合换一次), false=随机生成
+## preset_index: 如果use_preset为true，指定使用哪个预设(0-4)
+static func get_map(use_preset: bool = false, preset_index: int = -1) -> Array:
+	if use_preset:
+		# 如果preset_index < 0，随机选一个预设
+		if preset_index < 0:
+			preset_index = randi() % Constants.PRESET_MAPS.size()
+		return get_preset_map(preset_index)
+	else:
+		return generate()  # 随机生成
+
+
 ## Returns all open (walkable) cells in the maze.
 static func get_open_cells(maze: Array) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []

@@ -76,7 +76,7 @@ func _physics_process(delta: float) -> void:
 	# Hit a tank?
 	if collider and collider.is_in_group("tanks"):
 		if collider.player_id != shooter_id:
-			collider.hit()
+			collider.hit(bullet_type)
 			queue_free()
 			return
 		# Self-hit: ignore, keep moving
@@ -136,7 +136,7 @@ func _frag_explode() -> void:
 		if not is_instance_valid(t) or t.player_id == shooter_id:
 			continue
 		if global_position.distance_to(t.global_position) <= FRAG_BLAST_RADIUS:
-			t.hit()
+			t.hit(Constants.BulletType.FRAG_BOMB)
 
 
 # ── Visual ─────────────────────────────────────────────────

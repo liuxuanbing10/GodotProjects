@@ -10,10 +10,7 @@ extends Node
 
 # ── Constants ──────────────────────────────────────────────
 const PATH_RECALC := 0.5          # seconds between A* recalculations
-const REACTION_MIN := 0.2         # minimum reaction delay (seconds)
-const REACTION_MAX := 0.5         # maximum reaction delay (seconds)
 const SHOOT_ANGLE_TOLERANCE := deg_to_rad(20.0)
-const AIM_DEVIATION := deg_to_rad(5.0)
 const BULLET_SPEED := 380.0
 const WAYPOINT_RADIUS := 20.0
 const STUCK_TIMEOUT := 0.5
@@ -24,6 +21,7 @@ const POWERUP_SEEK_DIST := 250.0  # Max distance to go out of way for a power-up
 const PREDICTION_TIME := 0.8      # Seconds ahead for pathfinding prediction
 
 # ── State ──────────────────────────────────────────────────
+var difficulty: int = Constants.Difficulty.NORMAL
 var host_tank: Node
 var maze_grid: Array = []
 
@@ -44,6 +42,14 @@ func setup(tank: Node, maze: Array) -> void:
 	if tank:
 		_last_pos = tank.global_position
 	_rng.randomize()
+
+
+func set_difficulty(d: int) -> void:
+	difficulty = d
+
+
+func get_difficulty() -> int:
+	return difficulty
 
 
 # ── Per-frame logic ────────────────────────────────────────
@@ -80,9 +86,9 @@ func _physics_process(delta: float) -> void:
 			var perp := Vector2(-to_enemy.y, to_enemy.x).normalized()
 			# Pick strafe direction that doesn't face a wall
 			if not _is_blocked(_world_to_grid(host_tank.global_position + perp * Constants.CELL * 0.6)):
-				move_dir = perp.rotated(_rng.randf_range(-AIM_DEVIATION, AIM_DEVIATION))
+				move_dir = perp.rotated(_rng.randf_range(-Constants.AI_ACCURACY[difficulty], Constants.AI_ACCURACY[difficulty]))
 			elif not _is_blocked(_world_to_grid(host_tank.global_position - perp * Constants.CELL * 0.6)):
-				move_dir = (-perp).rotated(_rng.randf_range(-AIM_DEVIATION, AIM_DEVIATION))
+				move_dir = (-perp).rotated(_rng.randf_range(-Constants.AI_ACCURACY[difficulty], Constants.AI_ACCURACY[difficulty]))
 
 	# Priority 2: Follow A* path
 	if move_dir.length_squared() < 0.001 and _path_idx < _path.size():
@@ -124,7 +130,7 @@ func _physics_process(delta: float) -> void:
 func _should_shoot(nearest: Node, dist: float) -> bool:
 	# Scale reaction time by distance — faster reactions when close
 	var dist_factor := clampf(dist / 500.0, 0.3, 1.0)
-	var reaction := _rng.randf_range(REACTION_MIN, REACTION_MAX) * dist_factor
+	var reaction := Constants.AI_REACTION_DELAY[difficulty] * dist_factor
 	if _reaction_timer < reaction:
 		return false
 
@@ -140,8 +146,8 @@ func _should_shoot(nearest: Node, dist: float) -> bool:
 	var predicted_dir: Vector2 = (target_pos - host_tank.global_position).normalized()
 	var facing_dir: Vector2 = Vector2.RIGHT.rotated(host_tank.rotation)
 
-	# Apply AIM_DEVIATION so Laika isn't perfectly accurate
-	var effective_facing := facing_dir.rotated(_rng.randf_range(-AIM_DEVIATION, AIM_DEVIATION))
+	# Apply accuracy deviation so Laika isn't perfectly accurate
+	var effective_facing := facing_dir.rotated(_rng.randf_range(-Constants.AI_ACCURACY[difficulty], Constants.AI_ACCURACY[difficulty]))
 	var angle_diff: float = absf(effective_facing.angle_to(predicted_dir))
 
 	return angle_diff < SHOOT_ANGLE_TOLERANCE
@@ -158,7 +164,7 @@ func _get_pathfinding_target(nearest: Node) -> Vector2:
 		# Default: predicted enemy position
 		var predicted: Vector2 = nearest.global_position
 		if nearest.has_method(&"get_velocity"):
-			predicted += nearest.velocity * PREDICTION_TIME
+			predicted += nearest.velocity * PREDICTION_TIME * Constants.AI_PURSUIT_IMMEDIACY[difficulty]
 		return predicted
 
 	# Fallback: offset from current position
