@@ -630,8 +630,10 @@ func _on_tank_shoot(origin: Vector2, direction: Vector2, shooter_id: int, poweru
 
 
 static func _bullet_type(powerup: int) -> int:
-	# 使用 constants.gd 中统一的转换表
-	var bullet_t := Constants.POWERUP_TO_BULLET_TYPE.get(powerup, Constants.BulletType.NORMAL)
+	# 使用 constants.gd 中统一的转换数组（索引 = PowerUp 枚举值）
+	if powerup < 0 or powerup >= Constants.POWERUP_TO_BULLET_TYPE.size():
+		return Constants.BulletType.NORMAL
+	var bullet_t := Constants.POWERUP_TO_BULLET_TYPE[powerup]
 	return bullet_t if bullet_t >= 0 else Constants.BulletType.NORMAL
 
 

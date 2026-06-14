@@ -24,15 +24,16 @@ enum PowerUp { NONE, BIG_SHOT, LASER, FRAG_BOMB, GATLING, HOMING }
 enum BulletType { NORMAL, BIG_SHOT, FRAG_BOMB, GATLING, HOMING }
 
 # 道具 → 子弹类型转换表（用于 main.gd::_bullet_type()）
-# PowerUp 索引 → BulletType 索引
-const POWERUP_TO_BULLET_TYPE := {
-	PowerUp.NONE:      BulletType.NORMAL,
-	PowerUp.BIG_SHOT:  BulletType.BIG_SHOT,
-	PowerUp.LASER:     -1,               # 激光由 main.gd 直接处理，无需子弹
-	PowerUp.FRAG_BOMB: BulletType.FRAG_BOMB,
-	PowerUp.GATLING:   BulletType.GATLING,
-	PowerUp.HOMING:    BulletType.HOMING,
-}
+# PowerUp.NONE(=0) 作为占位，实际不使用
+# -1 表示激光由 main.gd 直接处理，无需子弹
+const POWERUP_TO_BULLET_TYPE: Array[int] = [
+	BulletType.NORMAL,   # 0: PowerUp.NONE（占位）
+	BulletType.BIG_SHOT, # 1: PowerUp.BIG_SHOT
+	-1,                  # 2: PowerUp.LASER（激光由 main.gd 处理）
+	BulletType.FRAG_BOMB,# 3: PowerUp.FRAG_BOMB
+	BulletType.GATLING,  # 4: PowerUp.GATLING
+	BulletType.HOMING,   # 5: PowerUp.HOMING
+]
 
 # ═══════════════════════════════════════════════════════════
 # Visual Theme — Shared Color Palette
