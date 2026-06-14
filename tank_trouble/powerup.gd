@@ -1,7 +1,8 @@
 extends Area2D
 
 # ── Enum ────────────────────────────────────────────────────
-enum PowerUpType { BIG_SHOT, LASER, FRAG_BOMB, GATLING, HOMING }
+# 使用 constants.gd 中统一的枚举
+# Constants.PowerUp: NONE, BIG_SHOT, LASER, FRAG_BOMB, GATLING, HOMING
 
 # ── Constants ───────────────────────────────────────────────
 const DESPAWN_TIME := 15.0
@@ -10,11 +11,11 @@ const FLOAT_SPEED := 3.0
 
 # ── Type Colors ─────────────────────────────────────────────
 const _TYPE_COLORS := {
-	PowerUpType.BIG_SHOT: Color(0.2, 0.4, 1.0),
-	PowerUpType.LASER: Color(1.0, 0.2, 0.2),
-	PowerUpType.FRAG_BOMB: Color(1.0, 0.6, 0.1),
-	PowerUpType.GATLING: Color(1.0, 0.9, 0.1),
-	PowerUpType.HOMING: Color(0.2, 1.0, 0.3),
+	Constants.PowerUp.BIG_SHOT: Color(0.2, 0.4, 1.0),
+	Constants.PowerUp.LASER: Color(1.0, 0.2, 0.2),
+	Constants.PowerUp.FRAG_BOMB: Color(1.0, 0.6, 0.1),
+	Constants.PowerUp.GATLING: Color(1.0, 0.9, 0.1),
+	Constants.PowerUp.HOMING: Color(0.2, 1.0, 0.3),
 }
 
 # ── Signals ─────────────────────────────────────────────────
@@ -74,22 +75,23 @@ func _draw() -> void:
 
 	# Type-specific icon
 	match powerup_type:
-		PowerUpType.BIG_SHOT:
+		Constants.PowerUp.BIG_SHOT:
 			_draw_big_shot_icon(center)
-		PowerUpType.LASER:
+		Constants.PowerUp.LASER:
 			_draw_laser_icon(center)
-		PowerUpType.FRAG_BOMB:
+		Constants.PowerUp.FRAG_BOMB:
 			_draw_frag_bomb_icon(center)
-		PowerUpType.GATLING:
+		Constants.PowerUp.GATLING:
 			_draw_gatling_icon(center)
-		PowerUpType.HOMING:
+		Constants.PowerUp.HOMING:
 			_draw_homing_icon(center)
 
 
 func _draw_big_shot_icon(c: Vector2) -> void:
-	# Two concentric white circles (unfilled)
-	draw_circle(c, 8.0, Color.WHITE, false, 2.0)
-	draw_circle(c, 4.0, Color.WHITE, false, 2.0)
+	# 两个同心圆环（空心）
+	var segments := 20
+	draw_arc(c, 8.0, 0, TAU, segments, Color.WHITE, 2.0)
+	draw_arc(c, 4.0, 0, TAU, segments, Color.WHITE, 2.0)
 
 
 func _draw_laser_icon(c: Vector2) -> void:

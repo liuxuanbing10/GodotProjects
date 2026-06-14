@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
-# ── Bullet types ───────────────────────────────────────────
-enum BulletType { NORMAL, BIG_SHOT, FRAG_BOMB, GATLING, HOMING }
+# ── Bullet types（引用 constants.gd 中的统一枚举）────────────
+# Constants.BulletType: NORMAL, BIG_SHOT, FRAG_BOMB, GATLING, HOMING
 
 # ── Constants ──────────────────────────────────────────────
 const SPEED := 380.0
@@ -15,7 +15,7 @@ const HOMING_TURN_RATE := 3.0  # radians/sec
 const TRAIL_LENGTH := 6
 
 # ── Public state ───────────────────────────────────────────
-var bullet_type := BulletType.NORMAL
+var bullet_type := Constants.BulletType.NORMAL
 var bounces := 0
 var shooter_id := -1
 
@@ -35,7 +35,7 @@ func setup(pos: Vector2, dir: Vector2, type: int, s_id: int) -> void:
 	collision_layer = 4
 	collision_mask = 1 | 2
 
-	var r := BIG_RADIUS if type == BulletType.BIG_SHOT else RADIUS
+	var r := BIG_RADIUS if type == Constants.BulletType.BIG_SHOT else RADIUS
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = r
@@ -58,7 +58,7 @@ func _physics_process(delta: float) -> void:
 		_trail.pop_front()
 
 	# Homing: steer toward nearest target
-	if bullet_type == BulletType.HOMING:
+	if bullet_type == Constants.BulletType.HOMING:
 		_apply_homing(delta)
 
 	var collision := move_and_collide(velocity * delta)
@@ -68,7 +68,7 @@ func _physics_process(delta: float) -> void:
 	var collider := collision.get_collider()
 
 	# Frag bomb explodes on anything
-	if bullet_type == BulletType.FRAG_BOMB:
+	if bullet_type == Constants.BulletType.FRAG_BOMB:
 		_frag_explode()
 		queue_free()
 		return
@@ -141,7 +141,7 @@ func _frag_explode() -> void:
 
 # ── Visual ─────────────────────────────────────────────────
 func _draw() -> void:
-	var r := BIG_RADIUS if bullet_type == BulletType.BIG_SHOT else RADIUS
+	var r := BIG_RADIUS if bullet_type == Constants.BulletType.BIG_SHOT else RADIUS
 	var tc := _get_type_color()
 
 	# ── Trail (existing circles preserved) ──
@@ -162,19 +162,19 @@ func _draw() -> void:
 
 	# ── Type-specific glow & effects ──
 	match bullet_type:
-		BulletType.NORMAL:
+		Constants.BulletType.NORMAL:
 			# Two concentric glow rings
 			draw_circle(Vector2.ZERO, r * 2.5, Color(tc.r, tc.g, tc.b, 0.15))
 			draw_circle(Vector2.ZERO, r * 1.5, Color(tc.r, tc.g, tc.b, 0.35))
 
-		BulletType.BIG_SHOT:
+		Constants.BulletType.BIG_SHOT:
 			# Much larger: 3 concentric rings with strong presence
 			var br := r * 1.5
 			draw_circle(Vector2.ZERO, br * 2.0, Color(tc.r, tc.g, tc.b, 0.2))
 			draw_circle(Vector2.ZERO, br * 1.3, Color(tc.r, tc.g, tc.b, 0.4))
 			draw_circle(Vector2.ZERO, br, Color(tc.r, tc.g, tc.b, 0.6))
 
-		BulletType.FRAG_BOMB:
+		Constants.BulletType.FRAG_BOMB:
 			# Two glow rings + surrounding spark dots
 			draw_circle(Vector2.ZERO, r * 2.5, Color(tc.r, tc.g, tc.b, 0.15))
 			draw_circle(Vector2.ZERO, r * 1.5, Color(tc.r, tc.g, tc.b, 0.3))
@@ -184,14 +184,14 @@ func _draw() -> void:
 				var o := Vector2(cos(a), sin(a)) * r * 1.8
 				draw_circle(o, 1.5, Color(tc.r, tc.g, tc.b, 0.6))
 
-		BulletType.GATLING:
+		Constants.BulletType.GATLING:
 			# Two glow rings + motion lines for speed feel
 			draw_circle(Vector2.ZERO, r * 2.0, Color(tc.r, tc.g, tc.b, 0.2))
 			draw_circle(Vector2.ZERO, r * 1.3, Color(tc.r, tc.g, tc.b, 0.4))
 			draw_line(Vector2(-r * 0.5, -r - 3), Vector2(-r * 0.5, -r - 1), Color(tc.r, tc.g, tc.b, 0.5), 1.0)
 			draw_line(Vector2(-r * 0.5, r + 1), Vector2(-r * 0.5, r + 3), Color(tc.r, tc.g, tc.b, 0.5), 1.0)
 
-		BulletType.HOMING:
+		Constants.BulletType.HOMING:
 			# Two glow rings + orbiting satellite dot
 			draw_circle(Vector2.ZERO, r * 2.5, Color(tc.r, tc.g, tc.b, 0.15))
 			draw_circle(Vector2.ZERO, r * 1.5, Color(tc.r, tc.g, tc.b, 0.3))
@@ -206,9 +206,9 @@ func _draw() -> void:
 
 func _get_type_color() -> Color:
 	match bullet_type:
-		BulletType.NORMAL:   return Color(1.0, 0.9, 0.3)   # yellow
-		BulletType.BIG_SHOT: return Color(0.2, 0.5, 1.0)   # blue
-		BulletType.FRAG_BOMB:return Color(1.0, 0.5, 0.1)   # orange
-		BulletType.GATLING:  return Color(1.0, 0.9, 0.3)   # yellow
-		BulletType.HOMING:   return Color(0.2, 1.0, 0.4)   # green
+		Constants.BulletType.NORMAL:   return Color(1.0, 0.9, 0.3)   # yellow
+		Constants.BulletType.BIG_SHOT: return Color(0.2, 0.5, 1.0)   # blue
+		Constants.BulletType.FRAG_BOMB:return Color(1.0, 0.5, 0.1)   # orange
+		Constants.BulletType.GATLING:  return Color(1.0, 0.9, 0.3)   # yellow
+		Constants.BulletType.HOMING:   return Color(0.2, 1.0, 0.4)   # green
 		_:                   return Color(1.0, 0.9, 0.3)

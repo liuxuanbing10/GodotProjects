@@ -16,6 +16,24 @@ const GRID_ROWS := 16
 # Gameplay
 const WIN_SCORE := 5
 
+# ── 道具类型枚举（所有脚本统一引用此枚举）───────────────────
+# 注意：NONE(=0) 仅用于坦克；bullet.gd 的 BulletType 无 NONE而有 NORMAL
+enum PowerUp { NONE, BIG_SHOT, LASER, FRAG_BOMB, GATLING, HOMING }
+
+# 子弹类型枚举（供 bullet.gd 和道具转换表引用）
+enum BulletType { NORMAL, BIG_SHOT, FRAG_BOMB, GATLING, HOMING }
+
+# 道具 → 子弹类型转换表（用于 main.gd::_bullet_type()）
+# PowerUp 索引 → BulletType 索引
+const POWERUP_TO_BULLET_TYPE := {
+	PowerUp.NONE:      BulletType.NORMAL,
+	PowerUp.BIG_SHOT:  BulletType.BIG_SHOT,
+	PowerUp.LASER:     -1,               # 激光由 main.gd 直接处理，无需子弹
+	PowerUp.FRAG_BOMB: BulletType.FRAG_BOMB,
+	PowerUp.GATLING:   BulletType.GATLING,
+	PowerUp.HOMING:    BulletType.HOMING,
+}
+
 # ═══════════════════════════════════════════════════════════
 # Visual Theme — Shared Color Palette
 # ═══════════════════════════════════════════════════════════

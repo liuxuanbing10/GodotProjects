@@ -15,7 +15,7 @@ func setup(pos: Vector2, radius: float = 40.0) -> void:
 	max_radius = radius
 	# Pre-generate spark and debris variations for this explosion
 	var rng := RandomNumberGenerator.new()
-	rng.seed = randi()
+	rng.randomize()
 	_spark_angles = []
 	_spark_lengths = []
 	_debris_offsets = []
@@ -84,7 +84,7 @@ func _draw() -> void:
 		base_angles[3], base_angles[3] + PI * 0.25,
 	]
 	for i in 8:
-		var offset := 0.0 if _debris_offsets.is_empty() else _debris_offsets[i]
+		var offset: float = 0.0 if _debris_offsets.is_empty() else _debris_offsets[i]
 		var angle: float = dirs[i] + offset + progress * 2.0
 		var length_factor := 0.7 if i % 2 == 0 else 1.0  # alternate short / long
 		var length := max_radius * 1.5 * progress * length_factor

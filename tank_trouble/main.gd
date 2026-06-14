@@ -365,7 +365,7 @@ func _process(delta: float) -> void:
 			if _shake_t <= 0.0:
 				camera.offset = Vector2.ZERO
 
-	# P3 mouse control — sets rotation/thrust AI inputs instead of ai_move_vector
+	# P3 mouse control — direct movement toward mouse cursor
 	if state == GameState.PLAYING and game_mode == GameMode.MODE_3P and tanks.size() >= 3:
 		var p3 := tanks[2]
 		if is_instance_valid(p3):
@@ -373,14 +373,9 @@ func _process(delta: float) -> void:
 			var p3pos: Vector2 = p3.global_position
 			var to_mouse := mp - p3pos
 			if to_mouse.length_squared() > 100.0:
-				to_mouse = to_mouse.normalized()
-				var facing := Vector2.RIGHT.rotated(p3.rotation)
-				var angle_diff := facing.angle_to(to_mouse)
-				p3.ai_rotation_input = clampf(angle_diff / deg_to_rad(45.0), -1.0, 1.0)
-				p3.ai_thrust_input = 1.0
+				p3.ai_move_dir = to_mouse.normalized()
 			else:
-				p3.ai_rotation_input = 0.0
-				p3.ai_thrust_input = 0.0
+				p3.ai_move_dir = Vector2.ZERO
 			p3.ai_wants_shoot = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
 
@@ -634,17 +629,10 @@ func _on_tank_shoot(origin: Vector2, direction: Vector2, shooter_id: int, poweru
 	bullet_container.add_child(b)
 
 
-static func _bullet_type(tank_type: int) -> int:
-	# Tank PowerUpType → Bullet BulletType
-	# Tank: 0(NONE) 1(BIG_SHOT) 3(FRAG_BOMB) 4(GATLING) 5(HOMING)
-	# Bullet: 0(NORMAL) 1(BIG_SHOT) 2(FRAG_BOMB) 3(GATLING) 4(HOMING)
-	match tank_type:
-		0: return 0
-		1: return 1
-		3: return 2
-		4: return 3
-		5: return 4
-		_:  return 0
+static func _bullet_type(powerup: int) -> int:
+	# 使用 constants.gd 中统一的转换表
+	var bullet_t := Constants.POWERUP_TO_BULLET_TYPE.get(powerup, Constants.BulletType.NORMAL)
+	return bullet_t if bullet_t >= 0 else Constants.BulletType.NORMAL
 
 
 func _fire_laser(origin: Vector2, direction: Vector2, shooter_id: int) -> void:
@@ -736,7 +724,7 @@ func _spawn_powerup() -> void:
 
 	var cell := valid[randi() % valid.size()]
 	var wp := Vector2(cell.x * Constants.CELL + Constants.CELL * 0.5, cell.y * Constants.CELL + Constants.CELL * 0.5)
-	var pt := randi() % 5  # 0..4 (powerup.gd PowerUpType enum)
+	var pt := randi() % 5 + 1  # Constants.PowerUp.BIG_SHOT(1) ~ HOMING(5)
 
 	var pu := Area2D.new()
 	pu.set_script(PowerUpScript)
@@ -751,8 +739,8 @@ func _spawn_powerup() -> void:
 func _on_powerup_collected(tank_node: Node, powerup_type: int) -> void:
 	if not is_instance_valid(tank_node) or not tank_node.has_method("apply_powerup"):
 		return
-	# Convert powerup.gd enum (0-4) → tank.gd PowerUpType (1-5)
-	tank_node.apply_powerup(powerup_type + 1)
+	# powerup_type 已经是 Constants.PowerUp 枚举值，直接传给坦克
+	tank_node.apply_powerup(powerup_type)
 
 
 # ═══════════════════════════════════════════════════════════

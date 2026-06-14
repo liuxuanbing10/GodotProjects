@@ -2,8 +2,8 @@ extends Node
 
 ## Laika AI Controller
 ##
-## Attached as a child of a Tank node. Sets host_tank.ai_rotation_input,
-## host_tank.ai_thrust_input and host_tank.ai_wants_shoot each physics frame.
+## Attached as a child of a Tank node. Sets host_tank.ai_move_dir,
+## host_tank.ai_wants_shoot each physics frame.
 ##
 ## Uses A* pathfinding on the 24x16 maze grid and predictive shooting.
 ## Features: strafing at close range, power-up seeking, predictive pathfinding.
@@ -108,16 +108,11 @@ func _physics_process(delta: float) -> void:
 	# Track position every frame
 	_last_pos = host_tank.global_position
 
-	# Convert desired movement direction to rotate+thrust controls
+	# Pass desired movement direction directly to tank
 	if move_dir.length_squared() > 0.001:
-		var current_facing := Vector2.RIGHT.rotated(host_tank.rotation)
-		var angle_diff := current_facing.angle_to(move_dir.normalized())
-		host_tank.ai_rotation_input = clampf(angle_diff / deg_to_rad(45.0), -1.0, 1.0)
-		# Apply thrust when roughly aligned (within ~60 deg)
-		host_tank.ai_thrust_input = 1.0 if absf(angle_diff) < deg_to_rad(60.0) else 0.0
+		host_tank.ai_move_dir = move_dir.normalized()
 	else:
-		host_tank.ai_rotation_input = 0.0
-		host_tank.ai_thrust_input = 0.0
+		host_tank.ai_move_dir = Vector2.ZERO
 
 	# ── Shooting ──
 	if nearest and _should_shoot(nearest, dist_to_enemy):
